@@ -1,0 +1,153 @@
+---
+title: "Assignment1"
+format: pdf
+editor: visual
+---
+
+1.  ***Step 1: Load the necessary library and read in the data***
+
+    ```{r}
+    # Load the data.table package
+    library(data.table)
+
+    # Read the CSV files into data tables
+    nga_data <- fread("hdro_indicators_nga.csv")
+    irl_data <- fread("hdro_indicators_irl.csv")
+
+    # Delete the first row
+    nga_data <- nga_data[-1,]
+    irl_data <- irl_data[-1,]
+
+    # Display the first few rows of each dataset to understand their structure
+    head(nga_data)
+    head(irl_data)
+
+    ```
+
+    ***Step 2: Assign the correct class to the variables***
+
+```{r}
+# Check the structure of the data
+str(nga_data)
+str(irl_data)
+```
+
+From above we know that we should change the class of "value" and "year"
+
+```{r}
+#'year' should be integer and 'value' should be numeric:
+nga_data[, year := as.integer(year)]
+nga_data[, value := as.numeric(value)]
+
+irl_data[, year := as.integer(year)]
+irl_data[, value := as.numeric(value)]
+
+# Verify the changes
+str(nga_data)
+str(irl_data)
+```
+
+2.  ***Merge the data datasets using `data.table.`***
+
+    ```{r}
+    # Merge the datasets using rbind
+    merged_data <- rbind(nga_data, irl_data)
+
+    # Check the structure of merged_data
+    str(merged_data)
+    ```
+
+3.  In addition to the above I have repeatedly used str to check the structure of the data. Next, I will ***compare the average of the same indicator in the two countries over years.***
+
+```{r}
+library(dplyr)
+
+# Filter data for Nigeria and Ireland
+nigeria_data <- merged_data %>% filter(country_name == "Nigeria")
+ireland_data <- merged_data %>% filter(country_name == "Ireland")
+
+# Calculate mean of 'value' for each 'indicator_name' for Nigeria
+nigeria_mean <- nigeria_data %>%
+  group_by(indicator_name) %>%
+  summarise(
+    mean_value_Nigeria = mean(value, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# Calculate mean of 'value' for each 'indicator_name' for Ireland
+ireland_mean <- ireland_data %>%
+  group_by(indicator_name) %>%
+  summarise(
+    mean_value_Ireland = mean(value, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# Merge the mean values for Nigeria and Ireland into one table
+mean_values_combined <- merge(nigeria_mean, ireland_mean, by = "indicator_name",
+                              all = TRUE)
+
+# Print the combined mean values
+print(mean_values_combined)
+```
+
+From the chart, we can clearly see the huge gap between the two countries for the same indicator, such as the Adolescent Birth Rate (births per 1,000 women ages 15-19), which is 124.6 in Nigeria and 13.7 in Ireland. A lot of useful information can be obtained intuitively, which is convenient for follow-up research.
+
+4.  Next, I will ***explore the Adolescent Birth Rate (births per 1,000 women ages 15-19) for Ireland and Nigeria from 1990 to 2022.***
+
+```{r}
+# Filter data for the specific indicator_name
+filtered_data <- merged_data[indicator_name == "Adolescent Birth Rate (births per 1,000 women ages 15-19)"]
+
+# Set keys and calculate mean 'value' by 'country_name' and 'year'
+result <- filtered_data[, .(mean_value = mean(value, na.rm = TRUE)), keyby =
+                          .(country_name, year)]
+
+# Print the result
+print(result)
+```
+
+Now we have successfully obtained this table, from which we can intuitively see the changes in the values. However, in order to more directly compare the differences in the values of the two countries with the changes in recent years, we will draw some graphs.
+
+5.  Next, I will ***use different line colors to draw line charts of Adolescent Birth Rate changes in these two countries according to years.***
+
+```{r}
+# Load necessary packages
+library(ggplot2)
+
+# Create a line plot for mean_value over the years for each country
+line_plot <- ggplot(result, aes(x = year, y = mean_value, color = country_name,
+                                group = country_name)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Adolescent Birth Rate Over Years",
+       x = "Year",
+       y = "Mean Adolescent Birth Rate",
+       color = "Country") +
+  theme_minimal()
+
+# Print the line plot
+print(line_plot)
+
+```
+
+From the figure, we can see a huge gap between this two countris with Adolescent Birth Rate, the values in Ireland are far lower than in Nigeria. And we can see that the Adolescent Birth Rate in Nigeria shows a decreasing trend with the increase of years. Ireland is also on the decline, which indicates that with the development of The Times and the progress of society, the Adolescent Birth Rate is in a downward trend. Now we want to explore whether the difference in Adolescent Birth rates between the two countries changes over the years, so we next plot a bar chart of their differences.
+
+```{r}
+# Calculate the difference (residuals) between mean_value of Nigeria and Ireland for each year
+residuals <- result[, .(residual = mean_value[country_name == "Nigeria"] - mean_value[country_name == "Ireland"]), by = year]
+
+# Plot a barplot of residuals with adjusted x-axis labels
+barplot <- ggplot(residuals, aes(x = factor(year), y = residual)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Residuals of Adolescent Birth Rate Between Nigeria and Ireland",
+       x = "Year",
+       y = "Residual (Nigeria - Ireland)") +
+  scale_x_discrete(breaks = seq(min(residuals$year), max(residuals$year), by = 5)) +  # Adjust x-axis labels to show every 5 years
+  theme_minimal()
+
+# Print the barplot
+print(barplot)
+
+```
+
+From the figure, we can see that the Adolescent Birth Rate gap between the two countries also shows a downward trend, which should be due to the large room for decline in Nigeria, while the value of Ireland is relatively low, so it is expected that the gap will continue to narrow in the future.
