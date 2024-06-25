@@ -4,6 +4,7 @@ format: pdf
 editor: visual
 ---
 # This is the first Change I committed
+# This is the sceond Change I commited
 1.  ***Step 1: Load the necessary library and read in the data***
 
     ```{r}
